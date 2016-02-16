@@ -15,7 +15,7 @@ figure(3), placeplot(3,3); fax(3) = gca;
 figure(4), placeplot(4,4); fax(4) = gca;
 
 %% gaussian kernel
-tsigma = 4.2;
+tsigma = 1;
 
 % Determine filter length
 filterLength = ceil(5*(tsigma)) + mod(ceil(5*(tsigma))-1,2);
@@ -74,7 +74,7 @@ for i = 60 % 1 : 400
     
     %% 2D smoothing filter
     % choose filter
-    smooth_type = 1;
+    smooth_type = 4;
     switch(smooth_type)
         case 1, % no smoothing
             filt = 1;
