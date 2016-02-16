@@ -15,16 +15,16 @@ figure(3), placeplot(3,3); fax(3) = gca;
 figure(4), placeplot(4,4); fax(4) = gca;
 
 %% gaussian kernel
-sigma = 4.2;
+tsigma = 4.2;
 
 % Determine filter length
-filterLength = ceil(5*(sigma)) + mod(ceil(5*(sigma))-1,2);
+filterLength = ceil(5*(tsigma)) + mod(ceil(5*(tsigma))-1,2);
 n = (filterLength - 1)/2;
 x = -n:n;
 
 % Create 1-D Gaussian Kernel
-c = 1/(sqrt(2*pi)*sigma);
-gaussKernel = c * exp(-(x.^2)/(2*sigma^2));
+c = 1/(sqrt(2*pi)*tsigma);
+gaussKernel = c * exp(-(x.^2)/(2*tsigma^2));
 
 % Normalize to ensure kernel sums to one
 gaussKernel = gaussKernel/sum(gaussKernel);
@@ -46,16 +46,16 @@ end
 numFrames = length(timekernel);
 
 %% declare spatial Gaussain kernel
-sigma = 4.2;
+ssigma = 4.2;
 
 % Determine filter length
-filterLength = ceil(5*(sigma)) + mod(ceil(5*(sigma))-1,2);
+filterLength = ceil(5*(ssigma)) + mod(ceil(5*(ssigma))-1,2);
 n = (filterLength - 1)/2;
 x = -n:n;
 
 % Create 1-D Gaussian Kernel
-c = 1/(sqrt(2*pi)*sigma);
-gaussKernel = c * exp(-(x.^2)/(2*sigma^2));
+c = 1/(sqrt(2*pi)*ssigma);
+gaussKernel = c * exp(-(x.^2)/(2*ssigma^2));
 
 % Normalize to ensure kernel sums to one
 spaceKernel = gaussKernel/sum(gaussKernel);
