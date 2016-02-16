@@ -52,7 +52,7 @@ for i = 1 : 400
     
     %% 2D smoothing filter
     % choose filter
-    smooth_type = 1;
+    smooth_type = 3;
     switch(smooth_type)
         case 1, % no smoothing
             filt = 1;
@@ -70,20 +70,20 @@ for i = 1 : 400
     bg_smooth = zeros(size(bg));
     for f = 1:numFrames
         bg_smooth(:,:,f) = conv2(bg(:,:,f),filt,'same');
-    end
-    
+    end    
     
     
    %% Correlate with 1D gaussian in the temporal domain
    frameFactor = bsxfun(@times,double(bg_smooth),shiftdim(derivGaussKernel,-1));
    fr_diff = sum(frameFactor,3);
 
+   
    %% Get noise estimate for thresholding
    % get variance per pixel
    bg_var = sum( (bsxfun(@minus,bg_smooth,mean(bg_smooth,3)).^2), 3);
    % choose median variance across the camera : assumes that less than half
-   % of the pixels are occluded with 
-   bg_thresh = 3 * sqrt( median( bg_var ));
+   % of the pixels are confounded with motion
+   bg_thresh = 3 * sqrt( median( reshape(bg_var,1,[]) ));
    
    
    %% Threshold
@@ -91,9 +91,9 @@ for i = 1 : 400
 
    
    %% Display
-   imshow(uint8(bg(:,:,ceil(numFrames/2))),'Parent',fax(1));
-   imshow(uint8(bg_smooth(:,:,ceil(numFrames/2))),'Parent',fax(2));
-   imshow(uint8(fr_diff),'Parent',fax(3));
+%    imshow(uint8(bg(:,:,ceil(numFrames/2))),'Parent',fax(1));
+%    imshow(uint8(bg_smooth(:,:,ceil(numFrames/2))),'Parent',fax(2));
+%    imshow(uint8(fr_diff),'Parent',fax(3));
    imshow(Mask,'Parent',fax(4))
    pause(0.05);
 end
