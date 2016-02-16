@@ -15,7 +15,7 @@ figure(3), placeplot(3,3); fax(3) = gca;
 figure(4), placeplot(4,4); fax(4) = gca;
 
 %% gaussian kernel
-sigma = 1;
+sigma = 4.2;
 
 % Determine filter length
 filterLength = ceil(5*(sigma)) + mod(ceil(5*(sigma))-1,2);
