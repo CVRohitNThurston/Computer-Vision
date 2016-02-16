@@ -1,10 +1,7 @@
-%% 1D Gaussian filter
-
 clc;
 clear all;
 close all;
 
- 
 srcFiles = dir([pwd '\EnterExitCrossingPaths2cor\*.jpg']);
 % the folder in which ur images exists
 
