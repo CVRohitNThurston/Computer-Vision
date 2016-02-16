@@ -74,7 +74,7 @@ for i = 1 : 400
     
     
     
-   %% Correlate with 1D gaussian in the temporal domain
+   %% Convolve with 1D gaussian in the temporal domain
    frameFactor = bsxfun(@times,double(bg_smooth),shiftdim(derivGaussKernel,-1));
    fr_diff = sum(frameFactor,3);
 
@@ -88,7 +88,11 @@ for i = 1 : 400
    
    %% Threshold
    Mask = image_threshold ( fr_diff, bg_thresh );
-
+     
+   % subplot(1,2,1), imshow(I2)
+   % subplot(2,2,2), imshow(fr_bw)
+   % subplot(2,2,3),
+   % subplot(1,2,2),
    
    %% Display
    imshow(uint8(bg(:,:,ceil(numFrames/2))),'Parent',fax(1));
