@@ -46,7 +46,7 @@ end
 numFrames = length(timekernel);
 
 %% declare spatial Gaussain kernel
-ssigma = 4.2;
+ssigma = 1;
 
 % Determine filter length
 filterLength = ceil(5*(ssigma)) + mod(ceil(5*(ssigma))-1,2);
@@ -107,9 +107,9 @@ for i = 60 % 1 : 400
        ./ (numFrames - 1);
    % choose median variance across the camera : assumes that less than half
    % of the pixels are confounded with motion
-   bg_thresh = 5 * sqrt( median( reshape(bg_var,1,[]) ));
+   bg_thresh = 5 * sqrt( median( reshape(bg_var,1,[]) ))
    
-   bg_thresh = 6;
+%    bg_thresh = 6;
    
    %% Threshold
    Mask = image_threshold ( fr_diff, bg_thresh );
