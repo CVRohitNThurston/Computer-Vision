@@ -29,7 +29,7 @@ gaussKernel = c * exp(-(x.^2)/(2*sigma^2));
 % Normalize to ensure kernel sums to one
 gaussKernel = gaussKernel/sum(gaussKernel);
 
-% Create 1-D Derivative of Gaussian Kernel
+%% Create 1-D Derivative of Gaussian Kernel
 derivGaussKernel = gradient(gaussKernel);
 derivGaussKernel = derivGaussKernel/sum(abs(derivGaussKernel));
         
@@ -44,6 +44,21 @@ switch(kerneltype)
 end
 
 numFrames = length(timekernel);
+
+%% declare spatial Gaussain kernel
+sigma = 4.2;
+
+% Determine filter length
+filterLength = ceil(5*(sigma)) + mod(ceil(5*(sigma))-1,2);
+n = (filterLength - 1)/2;
+x = -n:n;
+
+% Create 1-D Gaussian Kernel
+c = 1/(sqrt(2*pi)*sigma);
+gaussKernel = c * exp(-(x.^2)/(2*sigma^2));
+
+% Normalize to ensure kernel sums to one
+spaceKernel = gaussKernel/sum(gaussKernel);
 
 
 %% process    
@@ -68,7 +83,7 @@ for i = 60 % 1 : 400
         case 3, % 5x5 box filter
             filt = ones([5 5]);
         case 4, % 2D Gaussian
-            filt = bsxfun(@times,gaussKernel,gaussKernel.');
+            filt = bsxfun(@times,spaceKernel,spaceKernel.');
     end
     
     %normalize
