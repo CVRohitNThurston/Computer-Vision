@@ -14,7 +14,11 @@ figure(2), placeplot(2,2); fax(2) = gca;
 figure(3), placeplot(3,3); fax(3) = gca;
 figure(4), placeplot(4,4); fax(4) = gca;
 
-%% gaussian kernel
+switch(kerneltype)
+    case 1,
+        %% difference kernel
+    case 2, 
+        %% gaussian kernel
 sigma = 1;
 
 % Determine filter length
@@ -33,11 +37,12 @@ gaussKernel = gaussKernel/sum(gaussKernel);
 derivGaussKernel = gradient(gaussKernel);
 derivGaussKernel = derivGaussKernel/sum(abs(derivGaussKernel));
         
-thresh = 10;
-
 numFrames = length(derivGaussKernel);
+kernel = derivGaussKernel;
+
+end
 %% process    
-for i = 1 : 400
+for i = 60 % 1 : 400
     
     for f = 1:numFrames
         filename = strcat([pwd '\EnterExitCrossingPaths2cor\'],srcFiles(i+f-1).name); 
@@ -49,7 +54,7 @@ for i = 1 : 400
     
     %% 2D smoothing filter
     % choose filter
-    smooth_type = 4;
+    smooth_type = 1;
     switch(smooth_type)
         case 1, % no smoothing
             filt = 1;
@@ -73,15 +78,16 @@ for i = 1 : 400
     
    %% Correlate with 1D gaussian in the temporal domain
    frameFactor = bsxfun(@times,double(bg_smooth),shiftdim(derivGaussKernel,-1));
-   fr_diff = sum(frameFactor,3);
+   fr_diff = abs(sum(frameFactor,3));
 
    
    %% Get noise estimate for thresholding
    % get variance per pixel
-   bg_var = sum( (bsxfun(@minus,bg_smooth,mean(bg_smooth,3)).^2), 3);
+   bg_var = sum( (bsxfun(@minus,bg_smooth,mean(bg_smooth,3)).^2), 3)...
+       ./ (numFrames - 1);
    % choose median variance across the camera : assumes that less than half
    % of the pixels are confounded with motion
-   bg_thresh = 3 * sqrt( median( reshape(bg_var,1,[]) ));
+   bg_thresh = 5 * sqrt( median( reshape(bg_var,1,[]) ));
    
    
    %% Threshold

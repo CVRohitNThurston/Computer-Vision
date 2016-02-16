@@ -33,16 +33,26 @@ gaussKernel = gaussKernel/sum(gaussKernel);
 derivGaussKernel = gradient(gaussKernel);
 derivGaussKernel = derivGaussKernel/sum(abs(derivGaussKernel));
         
-thresh = 10;
 
-numFrames = length(derivGaussKernel);
+%% choose time domain kernel
+kerneltype = 2;
+switch(kerneltype)
+    case 1,
+        timekernel = 0.5 .* [-1 0 1];
+    case 2,
+        timekernel = derivGaussKernel;
+end
+
+numFrames = length(timekernel);
+
+
 %% process    
-for i = 1 : 400
+for i = 60 % 1 : 400
     
-    for f = 1:numFrames
+    for f = (0-floor(numFrames/2)):(0+floor(numFrames/2))
         filename = strcat([pwd '\EnterExitCrossingPaths2cor\'],srcFiles(i+f-1).name); 
         I = rgb2gray(imread(filename));
-        bg(:,:,f) = double(I); % image-time matrix: (row,column,frame)
+        bg(:,:,f+1+floor(numFrames/2)) = double(I); % image-time matrix: (row,column,frame)
     end
        
     fg = zeros(size(bg));
@@ -72,7 +82,7 @@ for i = 1 : 400
     
     
    %% Correlate with 1D gaussian in the temporal domain
-   frameFactor = bsxfun(@times,double(bg_smooth),shiftdim(derivGaussKernel,-1));
+   frameFactor = bsxfun(@times,double(bg_smooth),shiftdim(timekernel,-1));
    fr_diff = abs(sum(frameFactor,3));
 
    
@@ -84,6 +94,7 @@ for i = 1 : 400
    % of the pixels are confounded with motion
    bg_thresh = 5 * sqrt( median( reshape(bg_var,1,[]) ));
    
+   bg_thresh = 6;
    
    %% Threshold
    Mask = image_threshold ( fr_diff, bg_thresh );

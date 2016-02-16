@@ -8,7 +8,7 @@ srcFiles = dir([pwd '\EnterExitCrossingPaths2cor\*.jpg']);
    
 thresh = 15;
     
-for i = 1 : 400
+for i = 60 %1 : 400
     
     filename1 = strcat(pwd, '\EnterExitCrossingPaths2cor\', srcFiles(i).name);
     I1 = imread(filename1);         
@@ -29,23 +29,6 @@ for i = 1 : 400
               
     fr_bw = rgb2gray(I3); 
     %figure, imshow(Igrey);
-    
-     sigma = 1.4;
-    % Determine filter length
-    filterLength = ceil(5*(sigma)) + mod(ceil(5*(sigma))-1,2);
-    n = (filterLength - 1)/2;
-    x = -n:n;
-    
-    % Create 1-D Gaussian Kernel
-    c = 1/(sqrt(2*pi)*sigma);
-    gaussKernel = c * exp(-(x.^2)/(2*sigma^2));
-
-    % Normalize to ensure kernel sums to one
-    gaussKernel = gaussKernel/sum(gaussKernel);
-
-    % Create 1-D Derivative of Gaussian Kernel
-    derivGaussKernel = gradient(gaussKernel);
-    derivGaussKernel = derivGaussKernel/sum(abs(derivGaussKernel));
     
     fr_diff = (abs(double(fr_bw) - double(bg_bw)))/2;  % Cast operands as double to avoid negative overflow
        
