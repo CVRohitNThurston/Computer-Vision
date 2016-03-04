@@ -102,19 +102,13 @@ end
 
 %% RANSAC to find Homography
 
-h_bestimate = zeros([8 1]);
-
-% estimator error function
-h_err = @(h)(h);
-
 for jj = 1:Np
 % choose 4 random points at a time
-i = randi([1 Np], [1 4]);
 
-x = x1(i);
-y = y1(i);
-xp = x2(i);
-yp = y2(i);
+x = [x1 x2 x3 x4];
+y = [y1 y2 y3 y4];
+xp = [xp1 xp2 xp3 xp4];
+yp = [yp1 yp2 yp3 yp4];
 
 % build A matrix
 for ii = 4:-1:1
@@ -128,13 +122,7 @@ b = reshape([xp;yp],8,[]);
 % get homography estimate
 h_est = A \ b;
 
-% get error of the estimate
-h_error = h_err(h_est);
-
-% update estimate
-if(h_error < h_err(h_bestimate))
-    h_bestimate = h_est;
-end
+% get error of the 
 
 end
 
