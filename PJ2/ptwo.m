@@ -93,19 +93,16 @@ for i = 1: Np
     y1(i) = CornerSet1(Cset1Index(i),1);
     
     %
-    x2(i) = CornerSet2(Cset2Index(i),2)+c+1;
+    x2(i) = CornerSet2(Cset2Index(i),2);
     y2(i) = CornerSet2(Cset2Index(i),1);
 
-    plot([x x+c+1], ...
-    [y1 y2]);
+    plot([x1(i) x2(i)+c+1],[y1(i) y2(i)]);
 end
 
 %% RANSAC to find Homography
 
-h_bestimate = zeros([8 1]);
-
-% estimator error function
-h_err = @(h)(h);
+h_ransac = ones([8 1]);
+last_error = inf;
 
 for jj = 1:Np
 % choose 4 random points at a time
@@ -129,14 +126,22 @@ b = reshape([xp;yp],8,[]);
 h_est = A \ b;
 
 % get error of the estimate
-h_error = h_err(h_est);
+h_err = h_error(h_est,x2,y2,x1,y1);
 
 % update estimate
-if(h_error < h_err(h_bestimate))
-    h_bestimate = h_est;
+if(h_err < last_error)
+    h_ransac = h_est;
+    last_error = h_err;
 end
 
 end
+
+h_ransac = reshape([h_ransac; 1],3,3)
 
 %% MSAC to check
+
+tform = estimateGeometricTransform([x1(:), y1(:)],[x2(:), y2(:)],'projective');
+h_msac = tform.T
+
+
 
