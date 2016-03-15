@@ -3,21 +3,29 @@ function [ stitched_Im, pix ] = stitch_images( Source_Im, Dest_Im, H)
 %% find min/max x/y coordinates
 
 % find boundaries
+% source boundaries, source fram
 p1s = [1; 1; 1];
 p2s = [size(Source_Im,2); 1; 1];
 p3s = [1; size(Source_Im,1); 1];
 p4s = [size(Source_Im,2); size(Source_Im,1); 1];
 
-p1d = H*p1s; p1d = p1d/p1d(3);
-p2d = H*p2s; p2d = p2d/p2d(3);
-p3d = H*p3s; p3d = p3d/p3d(3);
-p4d = H*p4s; p4d = p4d/p4d(3);
+% source boundaries, destination frame
+p1sd = H*p1s; p1sd = p1sd/p1sd(3);
+p2sd = H*p2s; p2sd = p2sd/p2sd(3);
+p3sd = H*p3s; p3sd = p3sd/p3sd(3);
+p4sd = H*p4s; p4sd = p4sd/p4sd(3);
+
+% destination boundaries, destination frame
+p1dd = [1; 1; 1];
+p2dd = [size(Dest_Im,2); 1; 1];
+p3dd = [1; size(Dest_Im,1); 1];
+p4dd = [size(Dest_Im,2); size(Dest_Im,1); 1];
 
 % get min/max coordinates in destination frame
-minx = floor(min([p1s(1), p2s(1), p3s(1), p4s(1), p1d(1), p2d(1), p3d(1), p4d(1)]));
-miny = floor(min([p1s(2), p2s(2), p3s(2), p4s(2), p1d(2), p2d(2), p3d(2), p4d(2)]));
-maxx = ceil(max([p1s(1), p2s(1), p3s(1), p4s(1), p1d(1), p2d(1), p3d(1), p4d(1)]));
-maxy = ceil(max([p1s(2), p2s(2), p3s(2), p4s(2), p1d(2), p2d(2), p3d(2), p4d(2)]));
+minx = floor(min([p1dd(1), p2dd(1), p3dd(1), p4dd(1), p1sd(1), p2sd(1), p3sd(1), p4sd(1)]));
+miny = floor(min([p1dd(2), p2dd(2), p3dd(2), p4dd(2), p1sd(2), p2sd(2), p3sd(2), p4sd(2)]));
+maxx = ceil(max([p1dd(1), p2dd(1), p3dd(1), p4dd(1), p1sd(1), p2sd(1), p3sd(1), p4sd(1)]));
+maxy = ceil(max([p1dd(2), p2dd(2), p3dd(2), p4dd(2), p1sd(2), p2sd(2), p3sd(2), p4sd(2)]));
 
 % get coords for the destination frame
 [xi, yi] = meshgrid(minx:maxx,miny:maxy);
@@ -41,7 +49,7 @@ ydd = yd - miny + 1;
 xdd = xd - minx + 1;
 pixd(ydd, xdd) = 1;
 
-
+% 
 % feathering
 sigma = 3;
 feather = bsxfun(@times,...
@@ -53,7 +61,7 @@ pixw = bsxfun(@times,...
     normpdf(xx,mean([1 size(Source_Im,2)]),size(Source_Im,2)/(2*sigma)),...
     normpdf(yy,mean([1 size(Source_Im,1)]),size(Source_Im,1)/(2*sigma)));
 pixs = pixs .* pixw;
-
+% pixs = pixs*200;
 % interpolate source image values to map them to the destination image
 Source_mapped = uint8(interp2(double(Source_Im),xx,yy));
 
