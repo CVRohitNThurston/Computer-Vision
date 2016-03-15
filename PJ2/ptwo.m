@@ -20,23 +20,10 @@ Igrey1 = ImGreySet(:,:,1+index);
 Igrey2 = ImGreySet(:,:,2+index);
 
 %% Apply Corner Detector for the image Set
+warning off;
 CornerSet1 = harris(Igrey1,1,4,25000,0);
 CornerSet2 = harris(Igrey2,1,4,25000,0);
-
-% figure, clf
-% image(I1); axis image;
-% % image(Igrey1); colormap(gray(256)); axis image;
-% hold on
-% plot(CornerSet1(:,2),CornerSet1(:,1),'+')
-% title('detected corners overlay over the input image')
-% 
-% figure, clf
-% image(I2);  axis image;
-% % image(Igrey2); colormap(gray(256)); axis image;
-% hold on
-% plot(CornerSet2(:,2),CornerSet2(:,1),'+')
-% title('detected corners overlay over the input image')
-
+warning on;
 
 [r, c]=size(Igrey1);
 Thresh = 0.8;
@@ -70,7 +57,7 @@ for i = 1:length(CornerSet1)
     end
 end
 Np = length(CorrespMap);
-%% 
+%% Plot initial point correspondences
 Cset1Index = CorrespMap(:,1);  Cset2Index = CorrespMap(:,2);
 
 figure;
@@ -85,10 +72,10 @@ ys2 = CornerSet2(:,1);
 
 plot(xs1, ys1, 'gs','LineWidth',2);
 plot(xs2+c+1, ys2, 'rx','LineWidth',2);
-title('Plotting initial point correspondences')
+title('Initial Point Correspondences')
 
 %% Plotting initial point correspondences
-hold on
+hold on;
 for i = 1: Np
     
 %     if(last_inliers(i))
@@ -129,7 +116,9 @@ for jj = 1:Np
     b = reshape([xp;yp],8,[]);
     
     % get homography estimate
+    warning off;
     h_est = A \ b;
+    warning on;
     h_est = reshape([h_est; 1],3,3).';
     
     %     % show final image
@@ -137,7 +126,7 @@ for jj = 1:Np
         
     % get error of the estimate
     thresh = 1.5;
-    [h_err, inliers] = h_error(h_est,x1,y2,x2,y2,thresh);
+    [h_err, inliers] = h_error(h_est,x1,y2,x2,y2);
     
     % update estimate
     if(h_err < last_error)
@@ -165,7 +154,7 @@ end
 % build b matrix
 b = reshape([xp;yp],length(xp)*2,[]);
 
-% get homography estimate
+% get final homography estimate
 h_est = A \ b;
 h_ransac = reshape([h_est; 1],3,3).';
 
@@ -183,6 +172,7 @@ plot(x1(:), y1(:), 'rx', 'LineWidth', 2);
 plot(x2(:)+c+1, y2(:), 'bx', 'LineWidth', 2);
 scatter(inlierPoints1(:,1), inlierPoints1(:, 2), 18,'g', 'fill','LineWidth', 5);
 scatter(inlierPoints2(:,1)+c+1, inlierPoints2(:, 2),18, 'g','fill', 'LineWidth', 5);
+title('Inlier Points Determined by M-SAC');
 
 
 %% Inliers(green) found by RANSAC
@@ -195,12 +185,12 @@ hold on
 for i = 1: sum(last_inliers)
     plot([x(i) xp(i)+c+1],[y(i) yp(i)]);
 end
-title('Plot of inliers found by RANSAC');
+title('Inlier Points Determined by RANSAC');
 
 %% Warp one image onto the other one
 %% Stitch 
-stitched_im = stitch_images(Igrey1,Igrey2,h_msac);
-figure;
-imshow(stitched_im);
-title('The final stitched image');
+[stitched_im, IM] = stitch_images(Igrey1,Igrey2,h_msac);
+figure; imshow(uint8(IM.source)); title('Source Image');
+figure; imshow(uint8(IM.dest)); title('Destination ');
+figure; imshow(uint8(IM.stitched)); title('The final stitched image');
 
