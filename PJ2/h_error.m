@@ -1,4 +1,4 @@
-function [err inliers] = h_error(h, x1, y1, x2, y2, thresh)
+function [err, inliers] = h_error(h, x1, y1, x2, y2, thresh)
 
 % computes error as the sum of square of norm
 %
@@ -26,7 +26,12 @@ y_diff = yt - y2;
 err = sqrt(x_diff.^2 + y_diff.^2);
 
 % threshold for inliers/outliers
-inliers = err < median(err);
+if(nargin<6)
+    th = mean(err);
+else
+    th = thresh;
+end
+inliers = err < th;
 
 % get total error
 err = sum(err.^2);
