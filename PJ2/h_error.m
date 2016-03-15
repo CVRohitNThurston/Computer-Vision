@@ -1,4 +1,4 @@
-function err = h_error(h, x, y, xp, yp)
+function [err inliers] = h_error(h, x1, y1, x2, y2, thresh)
 
 % computes error as the sum of square of norm
 %
@@ -9,24 +9,24 @@ function err = h_error(h, x, y, xp, yp)
 %   xp,yp - transformed image coordinates
 %   h -     transformation matrix
 %
-% assumes h is in the form [h11 h12 h13 h21 h22 h23 h31 h32].'
-
-% h = 3x3 transformation matrix
-h = reshape([h; 1],3,3);
+% assumes h is in the form h = 3x3 transformation matrix
 
 % get transformed points, (xt,yt)
-for i = length(x):-1:1
-    p = h*[x(i) y(i) 1].';
-    xt(i) = p(1);
-    yt(i) = p(2);
+for i = length(x1):-1:1
+    p = h*[x1(i) y1(i) 1].';
+    xt(i) = p(1)./p(3);
+    yt(i) = p(2)./p(3);
 end
 
 % get difference between transformed points and detected points
-x_diff = xt - xp;
-y_diff = yt - yp;
+x_diff = xt - x2;
+y_diff = yt - y2;
 
-% get square of norm of difference
-err = x_diff.^2 + y_diff.^2;
+% get norm of difference
+err = sqrt(x_diff.^2 + y_diff.^2);
+
+% threshold for inliers/outliers
+inliers = err < median(err);
 
 % get total error
 err = sum(err.^2);
