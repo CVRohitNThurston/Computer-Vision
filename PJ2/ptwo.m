@@ -127,7 +127,7 @@ for jj = 1:Np
         
     % get error of the estimate
     thresh = 1.5;
-    [h_err, inliers] = h_error(h_est,x1,y2,x2,y2);
+    [h_err, inliers] = h_error(h_est,x1,y2,x2,y2,thresh);
     
     % update estimate
     if(h_err < last_error)
@@ -190,7 +190,7 @@ title('Inlier Points Determined by RANSAC');
 
 %% Warp one image onto the other one
 %% Stitch 
-[stitched_im, IM] = stitch_images(Igrey1,Igrey2,last_h_ransac);
+[stitched_im, IM] = stitch_images(Igrey1,Igrey2,h_ransac);
 figure; imshow(uint8(IM.source)); title('Source Image');
 figure; imshow(uint8(IM.dest)); title('Destination ');
 figure; imshow(uint8(IM.stitched)); title('The final stitched image');
