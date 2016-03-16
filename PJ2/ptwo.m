@@ -126,7 +126,7 @@ for jj = 1:Np
     %     stitched_im = stitch_images(Igrey1,Igrey2,h_est);
         
     % get error of the estimate
-    thresh = 1.5;
+    thresh = 6;
     [h_err, inliers] = h_error(h_est,x1,y2,x2,y2,thresh);
     
     % update estimate
