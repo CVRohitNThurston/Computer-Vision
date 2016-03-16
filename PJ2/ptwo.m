@@ -96,46 +96,47 @@ end
 
 h_ransac = ones([8 1]);
 last_error = inf;
-
-for jj = 1:Np
-
-    % choose 4 random points at a time
-    i = randi([1 Np], [1 4]);
-    
-    x = x1(i);
-    y = y1(i);
-    xp = x2(i);
-    yp = y2(i);
-    
-    % build A matrix
-    for ii = 4:-1:1
-        A(2*ii-1:2*ii,:) = [x(ii) y(ii) 1 0 0 0 -x(ii)*xp(ii) -y(ii)*xp(ii);...
-            0 0    0 x(ii) y(ii) 1 -x(ii)*yp(ii) -y(ii)*yp(ii)];
-    end
-    
-    % build b matrix
-    b = reshape([xp;yp],8,[]);
-    
-    % get homography estimate
-    warning off;
-    h_est = A \ b;
-    warning on;
-    h_est = reshape([h_est; 1],3,3).';
-    
-    %     % show final image
-    %     stitched_im = stitch_images(Igrey1,Igrey2,h_est);
+last_inliers = 0;
+while(sum(last_inliers) < 8)
+    for jj = 1:Np
         
-    % get error of the estimate
-    thresh = 6;
-    [h_err, inliers] = h_error(h_est,x1,y2,x2,y2,thresh);
-    
-    % update estimate
-    if(h_err < last_error)
-        last_h_est = h_est;
-        last_error = h_err;
-        last_inliers = inliers;
+        % choose 4 random points at a time
+        i = randi([1 Np], [1 4]);
+        
+        x = x1(i);
+        y = y1(i);
+        xp = x2(i);
+        yp = y2(i);
+        
+        % build A matrix
+        for ii = 4:-1:1
+            A(2*ii-1:2*ii,:) = [x(ii) y(ii) 1 0 0 0 -x(ii)*xp(ii) -y(ii)*xp(ii);...
+                0 0    0 x(ii) y(ii) 1 -x(ii)*yp(ii) -y(ii)*yp(ii)];
+        end
+        
+        % build b matrix
+        b = reshape([xp;yp],8,[]);
+        
+        % get homography estimate
+        warning off;
+        h_est = A \ b;
+        warning on;
+        h_est = reshape([h_est; 1],3,3).';
+        
+        %     % show final image
+        %     stitched_im = stitch_images(Igrey1,Igrey2,h_est);
+        
+        % get error of the estimate
+        thresh = 5;
+        [h_err, inliers] = h_error(h_est,x1,y2,x2,y2,thresh);
+        
+        % update estimate
+        if(h_err < last_error)
+            last_h_est = h_est;
+            last_error = h_err;
+            last_inliers = inliers;
+        end
     end
-    
 end
 
 %% get final estimate
