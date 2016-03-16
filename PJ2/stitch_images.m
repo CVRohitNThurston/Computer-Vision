@@ -1,4 +1,4 @@
-function [ stitched_Im, IM] = stitch_images( Source_Im, Dest_Im, H)
+function [ stitched_Im, IM] = stitch_images( Source_Im, Dest_Im, H, rel_weight)
 
 %% find min/max x/y coordinates
 
@@ -65,6 +65,13 @@ pixw = bsxfun(@times,...
     normpdf(yy,mean([1 size(Source_Im,1)]),size(Source_Im,1)/(2*sigma)));
 % set weight of valid pixels for the source image
 pixs = pixs .* pixw;
+
+% set a relative weight
+if(nargin<4)
+    rel_weight = 1;
+end
+
+pixs = pixs .* rel_weight;
 
 %% map and stitch images
 % interpolate source image values to map them to the destination image
