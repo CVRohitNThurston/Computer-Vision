@@ -16,6 +16,7 @@ end
 index = 1;
 I1 = I(:,:,:,1+index);
 I2 = I(:,:,:,2+index);
+
 Igrey1 = ImGreySet(:,:,1+index);
 Igrey2 = ImGreySet(:,:,2+index);
 
