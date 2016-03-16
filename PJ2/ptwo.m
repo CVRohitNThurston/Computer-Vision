@@ -2,18 +2,18 @@ clc;
 clear all;
 close all;
 
-% srcFiles = dir([pwd '\DanaOffice\*.jpg']);
-srcFiles = dir([pwd '\DanaHallWay2\*.jpg']);
+srcFiles = dir([pwd '\DanaOffice\*.jpg']);
+% srcFiles = dir([pwd '\DanaHallWay2\*.jpg']);
 numFrames = size(srcFiles);
 ImGreySet= zeros(340,512,10,'uint8');
 for f = 1:numFrames(1)
-%     filename = strcat([pwd '\DanaOffice\'],srcFiles(f).name);
-    filename = strcat([pwd '\DanaHallWay2\'],srcFiles(f).name);
+    filename = strcat([pwd '\DanaOffice\'],srcFiles(f).name);
+%     filename = strcat([pwd '\DanaHallWay2\'],srcFiles(f).name);
     I(:,:,:,f) = imread(filename);
     ImGreySet(:,:,f) = uint8(rgb2gray(I(:,:,:,f))); % image-time matrix: (row,column,frame)
 end
 
-index = 1;
+index = 3;
 I1 = I(:,:,:,1+index);
 I2 = I(:,:,:,2+index);
 
@@ -190,7 +190,7 @@ title('Inlier Points Determined by RANSAC');
 
 %% Warp one image onto the other one
 %% Stitch 
-[stitched_im, IM] = stitch_images(Igrey1,Igrey2,h_msac);
+[stitched_im, IM] = stitch_images(Igrey1,Igrey2,last_h_ransac);
 figure; imshow(uint8(IM.source)); title('Source Image');
 figure; imshow(uint8(IM.dest)); title('Destination ');
 figure; imshow(uint8(IM.stitched)); title('The final stitched image');
