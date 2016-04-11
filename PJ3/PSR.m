@@ -1,5 +1,6 @@
 function [ psr ] = PSR( filterResponse )
-% calculate the PSR (Peak to Sidelobe Ratio)
+% calculates the PSR (Peak to Sidelobe Ratio)
+
 maxresponse = max(filterResponse(:));
 windowSize = 11;
  % maximum value of filter response

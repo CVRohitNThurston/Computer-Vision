@@ -98,8 +98,8 @@ for frame = 1:numel(img_files),
         end
     end
 		
-    %% store the state values
-    n = 8; d = 2;
+    %% build the hankel matrix 
+    n = 10; d = 2;
     
     % create vector of states (positions), posvec, which is (1 x n x 2)
     if(frame <= 2*n)
@@ -110,15 +110,13 @@ for frame = 1:numel(img_files),
         posvec = [posvec(1,2:end,:) shiftdim(pos,-1)];
     end
     
-    
     %% predict next position if occluded
-    if(frame > 2*n)
+    if((frame > 2*n))%  && (PSR(response) < 10))
         
         % smooth the data like a sly dog
         for m = 1:d
-            posvec(:,:,m) = smooth(posvec(:,:,m),5);
+           posvec(:,:,m) = smooth(posvec(:,:,m),3); 
         end
-        
         % create Hankel matrix
         H = zeros([n,n,d]);
         for ii = 1:n
@@ -128,25 +126,28 @@ for frame = 1:numel(img_files),
             end
         end
         
-        % build A matrix
+        % build A matrix 
         A = H(1:(end-1),1:(end-1),:);
         b = H(1:(end-1),end,:);
         C = H(end,1:(end-1),:);
         v = zeros(size(b));
         Ap = zeros(size(A));
         
-        % lower complexity
-        l = 5;
+        % remove noise
+        l = 3;
         for m = 1:d
             [U, ~, V] = svd(A(:,:,m));
             S = svd(A(:,:,m));
             Sp = zeros(size(S));
             Sp(1:l) = S(1:l);
             Ap(:,:,m) = U*diag(Sp)*V';
-
+        end
+        
+        Ap = A;
+        for m = 1:d
             % compute dynamic linear regressor coefficients, v
             v(1:n-1,:,m) = pinv(Ap(:,:,m)) * b(:,:,m);
-            
+        
             % predict next state (location)
             next_pos(m) = C(:,:,m)*v(:,:,m);
         end
@@ -154,11 +155,7 @@ for frame = 1:numel(img_files),
     end
     
 	%% save position and calculate FPS
-	if(occluded)
-        positions(frame,:) = next_pos;
-    else
-        positions(frame,:) = pos;
-    end
+	positions(frame,:) = pos;
 	time = time + toc();
     
 	%% visualization
