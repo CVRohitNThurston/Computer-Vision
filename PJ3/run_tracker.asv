@@ -60,7 +60,7 @@ for frame = 1:numel(img_files),
 	tic()
 	
 	%extract and pre-process subwindow
-	x = get_subwindow(im, pos, sz, cos_window);
+    x = get_subwindow(im, pos, sz, cos_window);
 	
     %% calculate the gaussian response
     if frame > 1,
@@ -98,7 +98,7 @@ for frame = 1:numel(img_files),
         end
     end
 		
-    %% build the hankel matrix 
+    %% store the state values
     n = 10; d = 2;
     
     % create vector of states (positions), posvec, which is (1 x n x 2)
@@ -107,16 +107,22 @@ for frame = 1:numel(img_files),
         posvec(1,frame,:) = shiftdim(pos,-1);
     else
         % drop the first, add the last
-        posvec = [posvec(1,2:end,:) shiftdim(pos,-1)];
+        if(occluded)
+           posvec = [posvec(1,2:end,:) shiftdim(next_pos,-1)];
+        else
+            posvec = [posvec(1,2:end,:) shiftdim(pos,-1)];
+        end
     end
     
+    
     %% predict next position if occluded
-    if((frame > 2*n))%  && (PSR(response) < 10))
+    if(frame > 2*n)
         
         % smooth the data like a sly dog
         for m = 1:d
-           posvec(:,:,m) = smooth(posvec(:,:,m),3); 
+            posvec(:,:,m) = smooth(posvec(:,:,m),5);
         end
+        
         % create Hankel matrix
         H = zeros([n,n,d]);
         for ii = 1:n
@@ -126,28 +132,25 @@ for frame = 1:numel(img_files),
             end
         end
         
-        % build A matrix 
+        % build A matrix
         A = H(1:(end-1),1:(end-1),:);
         b = H(1:(end-1),end,:);
         C = H(end,1:(end-1),:);
         v = zeros(size(b));
         Ap = zeros(size(A));
         
-        % remove noise
-        l = 3;
+        % lower complexity
+        l = 6;
         for m = 1:d
             [U, ~, V] = svd(A(:,:,m));
             S = svd(A(:,:,m));
             Sp = zeros(size(S));
             Sp(1:l) = S(1:l);
             Ap(:,:,m) = U*diag(Sp)*V';
-        end
-        
-        Ap = A;
-        for m = 1:d
+
             % compute dynamic linear regressor coefficients, v
             v(1:n-1,:,m) = pinv(Ap(:,:,m)) * b(:,:,m);
-        
+            
             % predict next state (location)
             next_pos(m) = C(:,:,m)*v(:,:,m);
         end
@@ -155,7 +158,11 @@ for frame = 1:numel(img_files),
     end
     
 	%% save position and calculate FPS
-	positions(frame,:) = pos;
+	if(occluded)
+        positions(frame,:) = next_pos;
+    else
+        positions(frame,:) = pos;
+    end
 	time = time + toc();
     
 	%% visualization
@@ -182,7 +189,7 @@ for frame = 1:numel(img_files),
         f(3) = figure; placeplot(3,f(3)); axs3 = gca;
         
 	else
-% 		try  %subsequent frames, update GUI
+		try  %subsequent frames, update GUI
 			set(im_handle, 'CData', im)
 			set(rect_handle, 'Position', rect_position)
             [Xx, Yy] = meshgrid(linspace(rect_position(1),rect_position(1) + rect_position(3),Nx),...
@@ -190,24 +197,24 @@ for frame = 1:numel(img_files),
             set(p_handle,'AlphaData',response.^3);
             set(p_handle,'Xdata',Xx,'Ydata',Yy);
             set(np_handle,'Xdata',next_pos(2),'Ydata',next_pos(1));
-            %             if(PSR(response)<10) % show next position only if occlusion is detected        
-            if(1)
-                np_handle.Visible = 'on';
+            np_handle.Visible = 'on';
+            if(occluded)
+                np_handle.Color = 'r';
             else
-                np_handle.Visible = 'off';
+                np_handle.Color = 'b';
             end
             set(gcf,'name',(sprintf('PSR ~ %0.2f\tNext position at (%i, %i) ?',...
                 PSR(response),round(next_pos(1)),round(next_pos(2)))));
             plot(axs2,posvec(:,:,1));
             plot(axs3,posvec(:,:,2));
             
-%         catch %user has closed the window
-%             return
-% 		end
+        catch %user has closed the window
+            return
+		end
 	end
 	
 	drawnow
- 	pause(0.05)  %uncomment to run slower
+ 	pause(0.15)  %uncomment to run slower
 %     if(~mod(frame,5)); waitforbuttonpress; end
 end
 

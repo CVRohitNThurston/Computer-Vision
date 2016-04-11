@@ -9,6 +9,7 @@
 
 %choose the path to the videos (you'll be able to choose one with the GUI)
 base_path = './tiger2/';
+video_path = './tiger2/imgs/';
 
 
 %parameters according to the paper
@@ -24,8 +25,10 @@ clearvars A b C S Sp pos posvec
 %notation: variables ending with f are in the frequency domain.
 
 %ask the user for the video
+%{
 video_path = choose_video(base_path);
 if isempty(video_path), return, end  %user cancelled
+%}
 [img_files, pos, target_sz, resize_image, ground_truth, video_path] = ...
 	load_video_info(video_path);
 
@@ -60,8 +63,11 @@ for frame = 1:numel(img_files),
 	tic()
 	
 	%extract and pre-process subwindow
-	x = get_subwindow(im, pos, sz, cos_window);
-	
+    if(0)
+        x = get_subwindow(im, next_pos, sz, cos_window);
+    else
+        x = get_subwindow(im, pos, sz, cos_window);
+    end
     %% calculate the gaussian response
     if frame > 1,
         %calculate response of the classifier at all locations
@@ -97,62 +103,73 @@ for frame = 1:numel(img_files),
             z = (1 - interp_factor) * z + interp_factor * new_z;
         end
     end
-		
-    %% store the state values
-    n = 8; d = 2;
     
-    % create vector of states (positions), posvec, which is (1 x n x 2)
-    if(frame <= 2*n)
-        % initially just populate vector
-        posvec(1,frame,:) = shiftdim(pos,-1);
-    else
-        % drop the first, add the last
-        posvec = [posvec(1,2:end,:) shiftdim(pos,-1)];
-    end
-    
-    
-    %% predict next position if occluded
-    if(frame > 2*n)
+    for pp = 1
         
-        % smooth the data like a sly dog
-        for m = 1:d
-            posvec(:,:,m) = smooth(posvec(:,:,m),5);
-        end
+        %% store the state values
+        n = 25; d = 2;
         
-        % create Hankel matrix
-        H = zeros([n,n,d]);
-        for ii = 1:n
-            for jj = 1:n
-                m = (ii-1)+ (jj-1) +1; % vector index
-                H(ii,jj,:) = posvec(1,m,:); % Hankel my ankle
+        % create vector of states (positions), posvec, which is (1 x n x 2)
+        if(pp == 1)
+            if(frame <= 2*n)
+                % initially just populate vector
+                posvec(1,frame,:) = shiftdim(pos,-1);
+            else
+                % drop the first, add the last
+                if(occluded)
+                    posvec = [posvec(1,2:end,:) shiftdim(next_pos,-1)];
+                else
+                    posvec = [posvec(1,2:end,:) shiftdim(pos,-1)];
+                end
             end
+        else
+            % frame should be > 2*n
+            psvctmp = posvec(1,1,:);
+            posvec = [posvec(1,2:end,:) shiftdim(next_pos,-1)];
         end
-        
-        % build A matrix
-        A = H(1:(end-1),1:(end-1),:);
-        b = H(1:(end-1),end,:);
-        C = H(end,1:(end-1),:);
-        v = zeros(size(b));
-        Ap = zeros(size(A));
-        
-        % lower complexity
-        l = 5;
-        for m = 1:d
-            [U, ~, V] = svd(A(:,:,m));
-            S = svd(A(:,:,m));
-            Sp = zeros(size(S));
-            Sp(1:l) = S(1:l);
-            Ap(:,:,m) = U*diag(Sp)*V';
-
-            % compute dynamic linear regressor coefficients, v
-            v(1:n-1,:,m) = pinv(Ap(:,:,m)) * b(:,:,m);
+        %% predict next position if occluded
+        if(frame > 2*n)
             
-            % predict next state (location)
-            next_pos(m) = C(:,:,m)*v(:,:,m);
+            % smooth the data like a sly dog
+            for m = 1:d
+                posvec(:,:,m) = smooth(posvec(:,:,m),7);
+            end
+            
+            % create Hankel matrix
+            H = zeros([n,n,d]);
+            for ii = 1:n
+                for jj = 1:n
+                    m = (ii-1)+ (jj-1) +1; % vector index
+                    H(ii,jj,:) = posvec(1,m,:); % Hankel my ankle
+                end
+            end
+            
+            % build A matrix
+            A = H(1:(end-1),1:(end-1),:);
+            b = H(1:(end-1),end,:);
+            C = H(end,1:(end-1),:);
+            v = zeros(size(b));
+            Ap = zeros(size(A));
+            
+            % lower complexity
+            l = 10;
+            for m = 1:d
+                [U, ~, V] = svd(A(:,:,m));
+                S = svd(A(:,:,m));
+                Sp = zeros(size(S));
+                Sp(1:l) = S(1:l);
+                Ap(:,:,m) = U*diag(Sp)*V';
+                
+                % compute dynamic linear regressor coefficients, v
+                v(1:n-1,:,m) = pinv(Ap(:,:,m)) * b(:,:,m);
+                
+                % predict next state (location)
+                next_pos(m) = C(:,:,m)*v(:,:,m);
+            end
+            
         end
-        
+        if(pp == 2); posvec = [psvctmp posvec(1,1:end-1,:)]; end;
     end
-    
 	%% save position and calculate FPS
 	if(occluded)
         positions(frame,:) = next_pos;
@@ -185,7 +202,7 @@ for frame = 1:numel(img_files),
         f(3) = figure; placeplot(3,f(3)); axs3 = gca;
         
 	else
-% 		try  %subsequent frames, update GUI
+		try  %subsequent frames, update GUI
 			set(im_handle, 'CData', im)
 			set(rect_handle, 'Position', rect_position)
             [Xx, Yy] = meshgrid(linspace(rect_position(1),rect_position(1) + rect_position(3),Nx),...
@@ -193,24 +210,24 @@ for frame = 1:numel(img_files),
             set(p_handle,'AlphaData',response.^3);
             set(p_handle,'Xdata',Xx,'Ydata',Yy);
             set(np_handle,'Xdata',next_pos(2),'Ydata',next_pos(1));
-            %             if(PSR(response)<10) % show next position only if occlusion is detected        
-            if(1)
-                np_handle.Visible = 'on';
+            np_handle.Visible = 'on';
+            if(occluded)
+                np_handle.Color = 'r';
             else
-                np_handle.Visible = 'off';
+                np_handle.Color = 'b';
             end
             set(gcf,'name',(sprintf('PSR ~ %0.2f\tNext position at (%i, %i) ?',...
                 PSR(response),round(next_pos(1)),round(next_pos(2)))));
             plot(axs2,posvec(:,:,1));
             plot(axs3,posvec(:,:,2));
             
-%         catch %user has closed the window
-%             return
-% 		end
+        catch %user has closed the window
+            return
+		end
 	end
 	
 	drawnow
- 	pause(0.05)  %uncomment to run slower
+%  	pause(0.15)  %uncomment to run slower
 %     if(~mod(frame,5)); waitforbuttonpress; end
 end
 
