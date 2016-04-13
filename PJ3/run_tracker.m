@@ -63,8 +63,8 @@ for frame = 1:numel(img_files),
 	tic()
 	
 	%extract and pre-process subwindow
-    if(0)
-        x = get_subwindow(im, next_pos, sz, cos_window);
+    if(occluded)
+        x = get_subwindow(im, next_pos_vel, sz, cos_window);
     else
         x = get_subwindow(im, pos, sz, cos_window);
     end
@@ -81,6 +81,7 @@ for frame = 1:numel(img_files),
         %target location is at the maximum response
         [row, col] = find(response == max(response(:)), 1);
         pos = pos - floor(sz/2) + [row, col];
+        vel = pos - last_pos;
     end
     if(~occluded)
         %% adjust model
@@ -96,7 +97,10 @@ for frame = 1:numel(img_files),
             alphaf = new_alphaf;
             z = x;
             response = zeros(size(k));
-            next_pos = [0 0];
+            next_pos = pos;
+            vel = [0 0];
+            last_pos = pos;
+            next_pos_vel = pos;
         else
             %subsequent frames, interpolate model only if not occluded
             alphaf = (1 - interp_factor) * alphaf + interp_factor * new_alphaf;
@@ -104,78 +108,102 @@ for frame = 1:numel(img_files),
         end
     end
     
-    for pp = 1
-        
-        %% store the state values
-        n = 25; d = 2;
-        
-        % create vector of states (positions), posvec, which is (1 x n x 2)
-        if(pp == 1)
-            if(frame <= 2*n)
-                % initially just populate vector
-                posvec(1,frame,:) = shiftdim(pos,-1);
-            else
-                % drop the first, add the last
-                if(occluded)
-                    posvec = [posvec(1,2:end,:) shiftdim(next_pos,-1)];
-                else
-                    posvec = [posvec(1,2:end,:) shiftdim(pos,-1)];
-                end
-            end
+    
+    %% store the state values
+    n = 8; d = 4;
+    
+    % create vector of states (positions), posvec, which is (1 x n x 2)
+    if(frame <= 2*n)
+        % initially just populate vector
+        statevec(1,frame,:) = shiftdim([pos vel],-1);
+    else
+        % drop the first, add the last
+        if(occluded)
+            statevec = [statevec(1,2:end,:) shiftdim(next_state,-2)];
         else
-            % frame should be > 2*n
-            psvctmp = posvec(1,1,:);
-            posvec = [posvec(1,2:end,:) shiftdim(next_pos,-1)];
+            statevec = [statevec(1,2:end,:) shiftdim([pos vel],-1)];
         end
-        %% predict next position if occluded
-        if(frame > 2*n)
-            
-            % smooth the data like a sly dog
-            for m = 1:d
-                posvec(:,:,m) = smooth(posvec(:,:,m),7);
-            end
-            
-            % create Hankel matrix
-            H = zeros([n,n,d]);
-            for ii = 1:n
-                for jj = 1:n
-                    m = (ii-1)+ (jj-1) +1; % vector index
-                    H(ii,jj,:) = posvec(1,m,:); % Hankel my ankle
-                end
-            end
-            
-            % build A matrix
-            A = H(1:(end-1),1:(end-1),:);
-            b = H(1:(end-1),end,:);
-            C = H(end,1:(end-1),:);
-            v = zeros(size(b));
-            Ap = zeros(size(A));
-            
-            % lower complexity
-            l = 10;
-            for m = 1:d
-                [U, ~, V] = svd(A(:,:,m));
-                S = svd(A(:,:,m));
-                Sp = zeros(size(S));
-                Sp(1:l) = S(1:l);
-                Ap(:,:,m) = U*diag(Sp)*V';
-                
-                % compute dynamic linear regressor coefficients, v
-                v(1:n-1,:,m) = pinv(Ap(:,:,m)) * b(:,:,m);
-                
-                % predict next state (location)
-                next_pos(m) = C(:,:,m)*v(:,:,m);
-            end
-            
-        end
-        if(pp == 2); posvec = [psvctmp posvec(1,1:end-1,:)]; end;
     end
-	%% save position and calculate FPS
+    
+    %% predict next position if occluded
+    if(frame > 2*n)
+        
+        %         % smooth the data like a sly dog
+        %         for m = 1:d
+        %             statevec(:,:,m) = smooth(statevec(:,:,m),7);
+        %         end
+        %
+        
+        %% create square Hankel matrix
+        Hxyd = zeros([n,n,d]);
+        
+        for ii = 1:n
+            for jj = 1:n
+                m = (ii-1)+ (jj-1) +1; % vector index
+                Hxyd(ii,jj,:) = statevec(1,m,:); % Hankel my ankle
+            end
+        end
+        
+        % fold higher dimension vector into a block Hankel matrix
+        Hxy = reshape(shiftdim(Hxyd,2),[],n,1);
+
+        %% estimate complexity
+        %         % build A matrix
+        %         A = Hxy(1:(end-d),1:(end-1));
+        %         b = H(1:(end-d),end,:);
+        %         C = H((end-d+1):end,1:(end-1));
+        %         v = zeros(size(b));
+        
+        % decide complexity
+        k = 7;
+        %{
+        [U, ~, V] = svd(A(:,:,m));
+        S = svd(A(:,:,m));
+        Sp = zeros(size(S));
+        Sp(1:l) = S(1:l);
+        Ap(:,:,m) = U*diag(Sp)*V';
+        %}
+        
+        %% rebuild block hankel matrix to enforce minimum rank
+        Hpd = zeros([2*n-k+1,k,d]);
+        for ii = 1:(2*n-k+1)
+            for jj = 1:k
+                m = (ii-1) + (jj-1) + 1; % vector index
+                Hpd(ii,jj,:) = statevec(1,m,:); % Hankel my ankle
+            end
+        end
+
+        %         % fold higher dimension vector into a block Hankel matrix
+        %         Hp = reshape(shiftdim(Hpd,2),[],k,1);
+        
+        %% estimate next state
+        % get sample vectors as a 2D vector matrix
+        Ad = Hpd(1:end-1,1:end-1,:);
+        bd = Hpd(1:end-1,end,:);
+        Cd = Hpd(end,1:end-1,:);
+        
+        % fold vectors into 2 dimensional block Hankel matrix
+        A = reshape(shiftdim(Ad,2),[],k-1,1);
+        b = reshape(shiftdim(bd,2),[],1,1);
+        C = reshape(shiftdim(Cd,2),[],k-1,1);
+                
+        % compute dynamic linear regressor coefficients, v
+        v = A \ b;
+        
+        % predict next state (location)
+        next_state = C*v;
+        next_pos = next_state(1:2);
+        next_pos_vel = pos(:) + next_state(3:4);
+        
+    end
+    
+    %% save position and calculate FPS
 	if(occluded)
         positions(frame,:) = next_pos;
     else
         positions(frame,:) = pos;
     end
+    last_pos = pos;
 	time = time + toc();
     
 	%% visualization
@@ -194,8 +222,8 @@ for frame = 1:numel(img_files),
         set(p_handle,'FaceAlpha','interp',...
             'AlphaData',response.^3,...
             'FaceColor','g');
-        np_handle = plot(next_pos(2),next_pos(1),'r+');
-        set(np_handle,'visible','off');
+        np_handle(1) = plot(next_pos(2),next_pos(1),'m+');
+        np_handle(2) = plot(next_pos_vel(2),next_pos_vel(1),'cx');
         axis(ax);
         placeplot(7,f(1));
         f(2) = figure; placeplot(1,f(2)); axs2 = gca;
@@ -209,17 +237,19 @@ for frame = 1:numel(img_files),
                 linspace(rect_position(2),rect_position(2) + rect_position(4),Ny));
             set(p_handle,'AlphaData',response.^3);
             set(p_handle,'Xdata',Xx,'Ydata',Yy);
-            set(np_handle,'Xdata',next_pos(2),'Ydata',next_pos(1));
-            np_handle.Visible = 'on';
+            set(np_handle(1),'Xdata',next_pos(2),'Ydata',next_pos(1));
+            set(np_handle(2),'Xdata',next_pos_vel(2),'Ydata',next_pos_vel(1));
             if(occluded)
-                np_handle.Color = 'r';
+                np_handle(1).Color = 'm';
+                np_handle(2).Color = 'c';
             else
-                np_handle.Color = 'b';
+                np_handle(1).Color = 'r';
+                np_handle(2).Color = 'b';
             end
             set(gcf,'name',(sprintf('PSR ~ %0.2f\tNext position at (%i, %i) ?',...
                 PSR(response),round(next_pos(1)),round(next_pos(2)))));
-            plot(axs2,posvec(:,:,1));
-            plot(axs3,posvec(:,:,2));
+            plot(axs2,statevec(:,:,1));
+            plot(axs3,statevec(:,:,2));
             
         catch %user has closed the window
             return
