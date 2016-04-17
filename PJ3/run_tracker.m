@@ -269,8 +269,8 @@ for frame = 1:numel(img_files),
 	drawnow
 %  	pause(0.15)  %uncomment to run slower
 %     if(~mod(frame,10)); waitforbuttonpress; end
-    if(occluded); waitforbuttonpress; end
-    if(frame>100); waitforbuttonpress; end
+%     if(occluded); waitforbuttonpress; end
+    if(frame == 104); waitforbuttonpress; end
 end
 
 if resize_image, positions = positions * 2; end
