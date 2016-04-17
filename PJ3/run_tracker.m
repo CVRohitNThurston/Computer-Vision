@@ -10,7 +10,7 @@
 %choose the path to the videos (you'll be able to choose one with the GUI)
 base_path = './tiger2/';
 video_path = './tiger2/imgs/';
-
+close all; 
 
 %parameters according to the paper
 padding = 1;					%extra area surrounding the target
@@ -68,6 +68,7 @@ for frame = 1:numel(img_files),
     else
         x = get_subwindow(im, pos, sz, cos_window);
     end
+    
     %% calculate the gaussian response
     if frame > 1,
         %calculate response of the classifier at all locations
@@ -149,13 +150,16 @@ for frame = 1:numel(img_files),
 
         %% estimate complexity
         %         % build A matrix
-        %         A = Hxy(1:(end-d),1:(end-1));
-        %         b = H(1:(end-d),end,:);
-        %         C = H((end-d+1):end,1:(end-1));
-        %         v = zeros(size(b));
+        Axyd = Hxyd(:,1:end-1,:);
+        %         bxy = Hxyd(:,end,:);
+        %         Cxy = Hxyd(end,2:end,:);
+        
+        Axy = reshape(shiftdim(Axyd,2),[],n,1);
+        
+        S{frame} = svd(Axy);
         
         % decide complexity
-        k = 7;
+        k = 3;
         %{
         [U, ~, V] = svd(A(:,:,m));
         S = svd(A(:,:,m));
@@ -164,23 +168,26 @@ for frame = 1:numel(img_files),
         Ap(:,:,m) = U*diag(Sp)*V';
         %}
         
+        % decide memory
+        nn = 2*n-k+1; % total available rows
+        mm = min(k+2,nn); % number of rows to keep
         %% rebuild block hankel matrix to enforce minimum rank
-        Hpd = zeros([2*n-k+1,k,d]);
-        for ii = 1:(2*n-k+1)
+        Hpd = zeros([mm,k,d]);
+        for ii = nn-mm+1:nn % choose final mm rows
             for jj = 1:k
                 m = (ii-1) + (jj-1) + 1; % vector index
-                Hpd(ii,jj,:) = statevec(1,m,:); % Hankel my ankle
+                Hpd(ii-nn+mm,jj,:) = statevec(1,m,:); % Hankel my ankle
             end
         end
 
         %         % fold higher dimension vector into a block Hankel matrix
-        %         Hp = reshape(shiftdim(Hpd,2),[],k,1);
+        Hp = reshape(shiftdim(Hpd,2),[],k,1);
         
         %% estimate next state
         % get sample vectors as a 2D vector matrix
-        Ad = Hpd(1:end-1,1:end-1,:);
-        bd = Hpd(1:end-1,end,:);
-        Cd = Hpd(end,1:end-1,:);
+        Ad = Hpd(:,1:end-1,:);
+        bd = Hpd(:,end,:);
+        Cd = Hpd(end,2:end,:);
         
         % fold vectors into 2 dimensional block Hankel matrix
         A = reshape(shiftdim(Ad,2),[],k-1,1);
@@ -193,7 +200,7 @@ for frame = 1:numel(img_files),
         % predict next state (location)
         next_state = C*v;
         next_pos = next_state(1:2);
-        next_pos_vel = pos(:) + next_state(3:4);
+        next_pos_vel = (pos(:) + next_state(3:4)).';
         
     end
     
@@ -208,10 +215,12 @@ for frame = 1:numel(img_files),
     
 	%% visualization
 	rect_position = [pos([2,1]) - target_sz([2,1])/2, target_sz([2,1])];
+    rect_2 = [next_pos_vel([2,1]) - target_sz([2,1])/2, target_sz([2,1])];
 	if frame == 1,  %first frame, create GUI
 		f = figure('NumberTitle','off', 'Name',['Tracker - ' video_path]);
         im_handle = imshow(im, 'Border','tight', 'InitialMag',200);
 		rect_handle = rectangle('Position',rect_position, 'EdgeColor','g');
+        rect_handle2 = rectangle('Position',rect_2,'EdgeColor','r');
         ax = axis;
         [Ny, Nx] = size(response);
         [Xx, Yy] = meshgrid(linspace(rect_position(1),rect_position(1) + rect_position(3),Nx),...
@@ -233,6 +242,7 @@ for frame = 1:numel(img_files),
 		try  %subsequent frames, update GUI
 			set(im_handle, 'CData', im)
 			set(rect_handle, 'Position', rect_position)
+            set(rect_handle2, 'Position', rect_2);
             [Xx, Yy] = meshgrid(linspace(rect_position(1),rect_position(1) + rect_position(3),Nx),...
                 linspace(rect_position(2),rect_position(2) + rect_position(4),Ny));
             set(p_handle,'AlphaData',response.^3);
@@ -258,7 +268,9 @@ for frame = 1:numel(img_files),
 	
 	drawnow
 %  	pause(0.15)  %uncomment to run slower
-%     if(~mod(frame,5)); waitforbuttonpress; end
+%     if(~mod(frame,10)); waitforbuttonpress; end
+    if(occluded); waitforbuttonpress; end
+    if(frame>100); waitforbuttonpress; end
 end
 
 if resize_image, positions = positions * 2; end
