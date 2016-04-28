@@ -1,25 +1,16 @@
-%% initialize
-clc;
-clear all;
-close all;
+%% Initialize
+% clc;
+% clear all;
+% close all;
 
-srcFiles = dir([pwd '\DanaOffice\*.jpg']);
-% srcFiles = dir([pwd '\DanaHallWay2\*.jpg']);
-numFrames = size(srcFiles);
-ImGreySet= zeros(340,512,10,'uint8');
-for f = 1:numFrames(1)
-    filename = strcat([pwd '\DanaOffice\'],srcFiles(f).name);
-%     filename = strcat([pwd '\DanaHallWay2\'],srcFiles(f).name);
-    I(:,:,:,f) = imread(filename);
-    ImGreySet(:,:,f) = uint8(rgb2gray(I(:,:,:,f))); % image-time matrix: (row,column,frame)
-end
+numFrames = 2;
+imdir = '\Cones';
+% imdir = '\Cast';
 
-index = 3;
-I1 = I(:,:,:,1+index);
-I2 = I(:,:,:,2+index);
-
-Igrey1 = ImGreySet(:,:,1+index);
-Igrey2 = ImGreySet(:,:,2+index);
+I1 = imread([pwd imdir '\left.jpg']);
+I2 = imread([pwd imdir '\right.jpg']);
+Igrey1 = uint8(rgb2gray(I1));
+Igrey2 = uint8(rgb2gray(I2));
 
 %% Apply Corner Detector for the image Set
 warning off;
@@ -96,7 +87,6 @@ end
 
 %% RANSAC to find Homography
 
-h_ransac = ones([8 1]);
 last_error = inf;
 last_inliers = 0;
 while(sum(last_inliers) < 8)
@@ -111,6 +101,7 @@ while(sum(last_inliers) < 8)
         yp = y2(i);
         
         % build A matrix
+        clearvars A;
         for ii = 4:-1:1
             A(2*ii-1:2*ii,:) = [x(ii) y(ii) 1 0 0 0 -x(ii)*xp(ii) -y(ii)*xp(ii);...
                 0 0    0 x(ii) y(ii) 1 -x(ii)*yp(ii) -y(ii)*yp(ii)];
@@ -141,7 +132,7 @@ while(sum(last_inliers) < 8)
     end
 end
 
-%% get final estimate
+%% get final Homography estimate 
 
 % choose inliers
 x = x1(last_inliers);
@@ -163,6 +154,108 @@ h_est = A \ b;
 h_ransac = reshape([h_est; 1],3,3).';
 
 last_h_ransac = last_h_est;
+
+%% RANSAC to find Fundamental Matrix
+
+last_error = inf;
+last_inliers = 0;
+while(sum(last_inliers) < 8)
+    for jj = 1:Np
+        
+        %% choose 8 random points at a time
+        i = randi([1 Np], [1 8]);
+            
+        x = x1(i);
+        y = y1(i);
+        xp = x2(i);
+        yp = y2(i);
+        
+        %% build normalization matrices
+        mux = mean(x); muxp = mean(xp);
+        muy = mean(y); muyp = mean(yp);
+        sig = sum(sqrt((x-mux).^2+(y-muy).^2))/(length(x)*sqrt(2));
+        sigp = sum(sqrt((xp-muxp).^2+(yp-muyp).^2))/(length(xp)*sqrt(2));
+        
+        T = [1/sig, 0, -mux/sig; 0 1/sig, -muy/sig; 0 0 1];
+        Tp = [1/sigp, 0, -muxp/sigp; 0 1/sigp, -muyp/sigp; 0 0 1];
+        
+        % get normalized points
+        p = permute([x;y;ones(size(x))],[1 3 2]);
+        pp = permute([xp;yp;ones(size(xp))],[1 3 2]);
+        
+        for i = size(p,3):-1:1; phd(:,:,i) = T*p(:,:,i); end;
+        for i = size(pp,3):-1:1; pphd(:,:,i) = Tp*pp(:,:,i); end;
+        
+        ph = permute(phd, [1 3 2]);
+        pph = permute(pphd, [1 3 2]);
+              
+        %% build data matrix, A
+        A = [ph(1,:).'.*pph(1,:).',...
+            ph(1,:).'.*pph(2,:).',...
+            ph(1,:).',...
+            ph(2,:).'.*pph(1,:).',...
+            ph(2,:).'.*pph(2,:).',...
+            ph(2,:).',...
+            pph(1,:).',...
+            pph(2,:).',...
+            ones([size(ph,2) 1])];
+
+        %% get the entries of F-normalized from the final eigenvector of 
+        [U, D, V] = svd(A);
+        
+        Fn = reshape(V(:,end),3,3).';
+        
+        % verify that Fn relates points well
+        for i = size(ph,2)
+           S(i) = [ph(1,i) ph(2,i) 1] * Fn * [pph(1,i); pph(2,i); 1]; 
+        end
+        disp(sum(S(i)));
+        
+        % force F-normalized to be singular
+        [Uf, ~, Vf] = svd(Fn); 
+        Df = svd(Fn); 
+        Fp = Uf*diag([Df(1:end-1); 0])*Vf.';
+        
+        % verify that Fp relates points well
+        for i = size(ph,2)
+           S(i) = [ph(1,i) ph(2,i) 1] * Fp * [pph(1,i); pph(2,i); 1]; 
+        end
+        disp(sum(S(i)));
+        
+        % denormalize F
+        F = (inv(Tp).') * Fp * (T);
+          
+        %% find epic-polar-lines
+        for i = 1:8
+            l2(:,i) = F * [x(i); y(i); 1];
+            l1(:,i) = F.' * [xp(i); yp(i); 1];
+        end
+        
+        %% 
+        % build b matrix
+        b = reshape([xp;yp],8,[]);
+        
+        % get homography estimate
+        warning off;
+        h_est = A \ b;
+        warning on;
+        h_est = reshape([h_est; 1],3,3).';
+        
+        %     % show final image
+        %     stitched_im = stitch_images(Igrey1,Igrey2,h_est);
+        
+        % get error of the estimate
+        thresh = 5;
+        [h_err, inliers] = h_error(h_est,x1,y2,x2,y2,thresh);
+        
+        % update estimate
+        if(h_err < last_error)
+            last_h_est = h_est;
+            last_error = h_err;
+            last_inliers = inliers;
+        end
+    end
+end
 
 %% MSAC to check
 
@@ -196,4 +289,8 @@ title('Inlier Points Determined by RANSAC');
 figure; imshow(uint8(IM.source)); title('Source Image');
 figure; imshow(uint8(IM.dest)); title('Destination ');
 figure; imshow(uint8(IM.stitched)); title('The final stitched image');
+
+%% Create disparity map
+
+
 
